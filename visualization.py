@@ -64,25 +64,38 @@ class case_display:
         self.residual_summary = []   # Record the residual of each run
         self.att_record = []         # Record the attack types at each opf run
         
+        self.delay_time = 2000       # The time interval between two OPFs
+
         """
-        Specify the ATTACK
+        Measurement No.
         """
+        # z = [pf, pt, pi, vang, qf, qt, qi, vmag] in the current setting
+        # Measurement no
+        self.pf_no = len(self.case_env.idx['pf'])
+        self.pt_no = len(self.case_env.idx['pt'])
+        self.pi_no = len(self.case_env.idx['pi'])
+        self.vang_no = len(self.case_env.idx['vang'])
+        self.qf_no = len(self.case_env.idx['qf'])
+        self.qt_no = len(self.case_env.idx['qt'])
+        self.qi_no = len(self.case_env.idx['qi'])
+        self.vmag_no = len(self.case_env.idx['vmag'])
+
+        """
+        Attack Settings
+        """
+
         # RANDOM ATT
-        self.att_ratio_max = 0.15     # Maximum measurement change
+        self.att_ratio_max = 0.2     # Maximum measurement change
+
         # FDI ATT
-        att_spec = {}
-        ang_no = np.random.randint(5,self.case_env.no_bus-1)
-        att_spec['ang_posi'] = random.sample(self.case_env.non_ref_index, ang_no)
-        att_spec['ang_str'] = -0.5+0.5*2*np.random.rand(ang_no)        
-        mag_no = np.random.randint(self.case_env.no_bus-1)
-        att_spec['mag_posi'] = random.sample(self.case_env.non_ref_index, mag_no)
-        att_spec['mag_str'] = -0.001+0.002*np.random.rand()    
-        self.att_spec = att_spec
+        self.fdi_min_posi_no = 2      # Maximum and minimum number of attacked buses
+        self.fdi_max_posi_no = 5
 
         """
         Display settings
         """
         r = 15                                  # Parameter to control the ON-GRID DISPLAY, unit: px
+        self.r_brch = 10                        # shifting parameters for load flow text, unit: px
         self.wait_time = 1000                   # Interval between two opf (in ms)
         self.color_no = 1000                    # The number of colors used in the branch loading rate
         self.color_name = 'plasma'
@@ -101,7 +114,7 @@ class case_display:
         """
         self.sys_canvas = tk.Canvas(self.display_window, width=550, height=500, bg = 'white', relief='ridge')
         
-        # Record the coordinate of each bus
+        # Coordinate of each bus
         for i in range(len(case_env.case['branch'])):
             f_bus = case_env.f_bus[i]
             t_bus = case_env.t_bus[i]
@@ -110,20 +123,28 @@ class case_display:
             x2 = coordinate[f'{t_bus+1}'][0]
             y2 = coordinate[f'{t_bus+1}'][1]
 
-            # Draw branch
+            # Draw BRANCHES
             self.sys_canvas.create_line(x1,y1,x2,y2,fill='black', width=5, tags=f'line_{i}')
             
             # Branch flow display
             x = (x1+x2)/2
             y = (y1+y2)/2
-            self.sys_canvas.create_text(x,y, tags = f'line_text_{i}')  # The tag is used to refer and change the on-grid text
-            
+
+            # The tag is used to change the color of different line loading
+            # Design the load flow text:
+            # Below the line: normal measurements
+            # Above the line: Attacked measurements
+            self.sys_canvas.create_text(x,y - self.r_brch, tags = f'line_text_above_{i}')    # Below: normal 
+            self.sys_canvas.create_text(x,y + self.r_brch, tags = f'line_text_below_{i}')    # Above: attack             
+        
+        # Draw BUSES
         for i in range(len(case_env.case['bus'])):
             x1 = coordinate[f'{i+1}'][0]
             y1 = coordinate[f'{i+1}'][1]
             x2 = coordinate[f'{i+1}'][0]
             y2 = coordinate[f'{i+1}'][1]
-            self.sys_canvas.create_oval(x1-r,y1-r,x2+r,y2+r,fill='red')
+            # The tag is used to refer and change the color of the attacked bus
+            self.sys_canvas.create_oval(x1-r,y1-r,x2+r,y2+r,fill='green', tags=f'bus_{i}')        
             self.sys_canvas.create_text(x1,y1, text=f'{i+1}', fill='black', font=self.font_grid)
 
         """
@@ -228,21 +249,22 @@ class case_display:
         self.load_active_actual = result['bus'][:,PD]
 
         # Generate the measurement
-        load_active, load_reactive, pf, pl, residual = self.gen_mea(result)
+        load_active, load_reactive, pf_actual, pf, pl, residual = self.gen_mea(result)
             
         # Display
-        self.load_active = load_active         # Active Load Power
-        self.load_reactive = load_reactive     # Reactive Load Power
-        self.pf = pf                           # Active from side power flow
-        self.pl = pl                           # Active power loss
-        self.residual = residual               # BDD residual
-        self.residual_summary.append(residual) # Record the residual
+        self.load_active = load_active          # Active Load Power
+        self.load_reactive = load_reactive      # Reactive Load Power
+        self.pf_actual = pf_actual              # Actual (Nromal) power flow
+        self.pf = pf                            # Active from side power flow
+        self.pl = pl                            # Active power loss
+        self.residual = residual                # BDD residual
+        self.residual_summary.append(residual)  # Record the residual
         # print(self.residual_summary)
 
         # Draw and set the residual plot
         self.plot_residual()
 
-        print('*'*50)
+        print('*'*60)
     
     def gen_mea(self, result):
         """
@@ -250,6 +272,11 @@ class case_display:
         """
         # Generate the measurement
         z, z_noise, vang_ref, vmag_ref = self.case_env.construct_mea(result)
+        
+        # Record the ACTUAL(NORMAL) measurement
+        pf_actual = result['branch'][:,PF]
+        load_active_actual = result['bus'][:,PD]
+
         if self.att_select.get() == self.att_choice[0]:
             """
             NO ATTACK
@@ -260,47 +287,50 @@ class case_display:
             """
             RANDOM ATTACK
             """
-            
             z_att_noise = self.case_env.gen_ran_att(z_noise, self.att_ratio_max)
-            # (z_att_noise.shape)
-            # Find the detection residual
-            z_noise = z_att_noise     # pass as z_noise for consistency
             
+            z_noise = z_att_noise     # pass as z_noise for consistency
         
         elif self.att_select.get() == self.att_choice[2]:
             """
             FDI ATTACK
             """
+            # FDI ATT
+            att_spec = {}
+            # Voltage angle
+            ang_no = np.random.randint(self.fdi_min_posi_no, self.fdi_max_posi_no+1)     # Attack bus number
+            att_spec['ang_posi'] = random.sample(self.case_env.non_ref_index, ang_no)    # Attack bus position
+            att_spec['ang_str'] = -0.5+0.5*2*np.random.rand(ang_no)                      # Attack value
+            # Voltage magnitude
+            mag_no = np.random.randint(self.case_env.no_bus-1)
+            att_spec['mag_posi'] = random.sample(self.case_env.non_ref_index, mag_no)
+            att_spec['mag_str'] = -0.001+0.002*np.random.rand()                        # The voltage attack on manitude is very small
+            # self.att_spec = att_spec
+
             # Do state estimation
             v_est = self.case_env.ac_se_pypower(z_noise, vang_ref, vmag_ref)
             z_est = self.case_env.h_x_pypower(v_est)
+            
             # Generate FDI attack
-            v_att = self.case_env.gen_fdi_att(v_est, self.att_spec)
+            v_att, self.att_posi = self.case_env.gen_fdi_att(v_est, att_spec)
+            
             # Calculate the attacked measurement
             z_att_est = self.case_env.h_x_pypower(v_att)
             z_att_noise = z_noise + z_att_est - z_est
+            
             z_noise = z_att_noise    # pass as z_noise for consistency
+
+            # Print the attack position
+            print(f'The FDI attack position is: {self.att_posi}')
 
         # Calculate the residual
         residual = self.case_env.bdd_residual(z_noise, vang_ref, vmag_ref)
 
-        # Define the attacked measurement (not real only shown to the system operator)
-        # z = [pf, pt, pi, vang, qf, qt, qi, vmag] in the current setting
-        # Measurement no
-        pf_no = len(self.case_env.idx['pf'])
-        pt_no = len(self.case_env.idx['pt'])
-        pi_no = len(self.case_env.idx['pi'])
-        vang_no = len(self.case_env.idx['vang'])
-        qf_no = len(self.case_env.idx['qf'])
-        qt_no = len(self.case_env.idx['qt'])
-        qi_no = len(self.case_env.idx['qi'])
-        vmag_no = len(self.case_env.idx['vmag'])
-
-        z_noise = z_noise.squeeze(1)       # Reduce the last dimension
-        pf = z_noise[:pf_no] 
-        pt = z_noise[pf_no:pf_no+pt_no] 
-        pi = z_noise[pf_no+pt_no:pf_no+pt_no+pi_no] 
-        qi = z_noise[pf_no+pt_no+pi_no+vang_no+qf_no+qt_no:pf_no+pt_no+pi_no+vang_no+qf_no+qt_no+qi_no] 
+        z_noise = z_noise.squeeze(1)       
+        pf = z_noise[:self.pf_no] 
+        pt = z_noise[self.pf_no:self.pf_no+self.pt_no] 
+        pi = z_noise[self.pf_no+self.pt_no:self.pf_no+self.pt_no+self.pi_no] 
+        qi = z_noise[self.pf_no+self.pt_no+self.pi_no+self.vang_no+self.qf_no+self.qt_no:self.pf_no+self.pt_no+self.pi_no+self.vang_no+self.qf_no+self.qt_no+self.qi_no] 
         pg = result['gen'][:,PG]
         qg = result['gen'][:,QG]
         
@@ -308,7 +338,7 @@ class case_display:
         load_reactive = self.case_env.Cg@qg - qi*self.case_env.case['baseMVA']
         pl = np.sum(np.abs(pf+pt))
         
-        return load_active, load_reactive, pf*self.case_env.case['baseMVA'], pl*self.case_env.case['baseMVA'], residual
+        return load_active, load_reactive, pf_actual, pf*self.case_env.case['baseMVA'], pl*self.case_env.case['baseMVA'], residual
 
     def plot_residual(self):
         """
@@ -338,8 +368,18 @@ class case_display:
         self.figure_canvas.draw()
 
     def show_mea(self):
+        if self.is_pause == False:
+            # Continue
+            self.opf_loop()       # Run OPF
+            self.display_update() # Update the display
+            self.display_window.after(self.delay_time, self.show_mea)  # Refresh the whole window
+        else:
+            # Pause
+            pass
+
+    def display_update(self):
         """
-        Display the measurements
+        OFF-grid measurement update
         """
         
         # Update off-grid Measurement
@@ -355,12 +395,22 @@ class case_display:
         else:
             self.label_residual_['fg'] = 'black'
         
-        # Update the on-grid Measurement
-        for i in range(case_env.no_brh):
+        """
+        ON-grid measurement update
+        """
+        
+        # Branch
+        for i in range(self.case_env.no_brh):
             # Set the branch color according to the active power flow ratio
             brh_ratio = np.abs(self.pf[i]/self.flow_limit[i])           # The load rate of branch
             brh_ratio_actual = np.abs(self.pf_actual[i]/self.flow_limit[i])
+            
             # Set the branch coloring according to the value of loading rate
+            if brh_ratio_actual >= 1:
+                color_idx_actual = -1
+            else:
+                color_idx_actual = int(self.color_no*brh_ratio_actual)
+            
             if brh_ratio >= 1:
                 color_idx = -1                              # Pick the last color in the colormap
             else:
@@ -371,20 +421,33 @@ class case_display:
             # Change the on-grid active flow load value
             if self.att_select.get() == self.att_choice[0]:
                 # No att
-                self.sys_canvas.itemconfig(tagOrId = f'line_text_{i}', fill = 'black', text = f'{int(brh_ratio*100)}' + '%', font = self.font_grid)
+                # Normal operation
+                self.sys_canvas.itemconfig(tagOrId = f'line_text_below_{i}', fill = self.color_map_list[color_idx_actual], text = f'{int(brh_ratio_actual*100)}' + '%', font = self.font_grid)
             else:
-                # With attack
-                # Also display the actual measurement 
-                self.sys_canvas.itemconfig(tagOrId = f'line_text_{i}', fill = 'black', text = f'{int(brh_ratio*100)}%' + '\n' + f'{int(brh_ratio_actual*100)}%', font = self.font_grid)
+                # With attacks
+                # Also display the actual measurement
+                # Normal 
+                self.sys_canvas.itemconfig(tagOrId = f'line_text_below_{i}', fill = self.color_map_list[color_idx_actual], text = f'{int(brh_ratio_actual*100)}%', font = self.font_grid)
+                # Attack
+                self.sys_canvas.itemconfig(tagOrId = f'line_text_above_{i}', fill = self.color_map_list[color_idx], text = f'{int(brh_ratio*100)}%', font = self.font_grid)
 
-        # Call OPF
-        if self.is_pause == False:
-            # Continuely call the opf
-            self.opf_loop()
-            self.display_window.after(1000, self.show_mea)  # Call the display function every .ms
-        else:
-            # Hold the current display
-            pass
+        # Bus
+        if self.att_select.get() == self.att_choice[-1]:
+            # Change the bus color if this bus is attacked by FDI attacks
+            for i in range(self.case_env.no_bus):
+                if i in set(self.att_posi):
+                    self.sys_canvas.itemconfig(tagOrId = f'bus_{i}', fill = 'red')
+                else:
+                    self.sys_canvas.itemconfig(tagOrId = f'bus_{i}', fill = 'green')
+
+        # # Call OPF
+        # if self.is_pause == False:
+        #     # Continuely call the opf
+        #     self.opf_loop()
+        #     self.display_window.after(self.delay_time, self.show_mea)  # Call the display function every .ms
+        # else:
+        #     # Hold the current display
+        #     pass
     
     """
     DISPLAY FUNCS

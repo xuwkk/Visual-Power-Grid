@@ -103,7 +103,7 @@ class power_env(FDI):
         
         return result
     
-    def _generate_load(self,load_raw_dir, load_active_dir, load_reactive_dir):
+    def _generate_load(self, load_raw_dir, load_active_dir, load_reactive_dir):
         """
         The function that is used to generate the load data.
         Define the active load wisely in the self.case['bus'][:,PD] so that the generated load is not raising non-convergency in OPF

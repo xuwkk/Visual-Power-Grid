@@ -60,5 +60,5 @@ class FDI(SE):
         
         v_att = vmag_att * np.exp(1j*vang_att)
         
-        return v_att        
+        return v_att, ang_posi
     

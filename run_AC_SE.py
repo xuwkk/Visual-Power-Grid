@@ -10,7 +10,7 @@ Sources:
     2. MATPOWER SE: https://github.com/MATPOWER/mx-se
     3. PYPOWER: https://github.com/rwl/PYPOWER
 
-Author: W XU
+Author: Wangkun Xu
 """
 
 import numpy as np
