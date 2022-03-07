@@ -5,8 +5,6 @@
 ## Introduction
 This repository contains a visualization tool on power system steady state operation, e.g. Optimal Power Flow (OPF) and state estimation (SE). Meanwhile, cyber attacks, such as False Data Injection (FDI) and the corresponding defence strategy, e.g. Moving Target Defence (MTD) is also included. The demonstration is purely in Python. The power system operation replies on python package [PyPower](https://github.com/rwl/PYPOWER) (installization required)  and [Tkinter](https://docs.python.org/3/library/tkinter.html) (embedded in Python). 
 
-This repo is part of the CyberASAP project with Dr. Fei Teng and Dr. Martin Higgins.
-
 **Thre current functions include:**
 
 1. Infinitely run the OPF and display the active line flow measurement (as the percentage to the line active power limits).
