@@ -21,21 +21,23 @@ TODO:
 """
 Import
 """
-from src.load.case14.coordinate import *
+from gen_data import gen_case, gen_load
+from src.case14.coordinate import *
 from pypower.api import case14
-from pypower.idx_brch import RATE_A, PF
+from pypower.idx_brch import RATE_A, PF, BR_X
 from pypower.idx_bus import PD
 from pypower.idx_gen import PG, QG
 import tkinter as tk
-from tkinter import Toplevel, ttk
+from tkinter import DISABLED, Toplevel, ttk
 from power_sys import power_env
 import numpy as np
 from matplotlib import cm, colors
-from mea_idx import define_mea_idx_noise
+from config_mea_idx import define_mea_idx_noise
 import random
 import matplotlib.pyplot as plt
 from platform import system
 from PIL import ImageTk, Image
+from copy import deepcopy
 
 """
 Call matplotlib-canvas backend
@@ -64,7 +66,10 @@ class case_display:
         self.residual_summary = []   # Record the residual of each run
         self.att_record = []         # Record the attack types at each opf run
         
-        self.delay_time = 2000       # The time interval between two OPFs
+        self.delay_time = 1500       # The time interval between two OPFs
+
+        # Copy the case_env whose reactance never changes for the attacker
+        self.case_env_ori = deepcopy(case_env)
 
         """
         Measurement No.
@@ -85,11 +90,17 @@ class case_display:
         """
 
         # RANDOM ATT
-        self.att_ratio_max = 0.2     # Maximum measurement change
+        self.att_ratio_max = 0.01     # Maximum measurement change
 
         # FDI ATT
-        self.fdi_min_posi_no = 2      # Maximum and minimum number of attacked buses
-        self.fdi_max_posi_no = 5
+        self.fdi_min_posi_no = 4      # Maximum and minimum number of attacked buses
+        self.fdi_max_posi_no = 8
+
+        """
+        MTD settings
+        """
+        self.max_reac_ratio = 0.3
+        self.min_reac_ratio = 0.1
 
         """
         Display settings
@@ -104,15 +115,15 @@ class case_display:
         self.font_disp_legend = (self.font, 20, 'bold')
         self.font_disp_value = (self.font, 20)
         matplotlib.rcParams['lines.linewidth'] = 2    # Matplotlib settings
-        matplotlib.rc('xtick', labelsize=20) 
-        matplotlib.rc('ytick', labelsize=20)
+        matplotlib.rc('xtick', labelsize=16) 
+        matplotlib.rc('ytick', labelsize=16)
 
-        self.residual_plot_len = 20             # The No. of residuals show at the same time in the residual plot
+        self.residual_plot_len = 15             # The No. of residuals show at the same time in the residual plot
         
         """
         ON-GRID DISPLAY
         """
-        self.sys_canvas = tk.Canvas(self.display_window, width=550, height=500, bg = 'white', relief='ridge')
+        self.sys_canvas = tk.Canvas(self.display_window, width=570, height=500, bg = 'white', relief='ridge')
         
         # Coordinate of each bus
         for i in range(len(case_env.case['branch'])):
@@ -156,12 +167,12 @@ class case_display:
         self.frame_mea.grid_propagate(0)
 
         # Label
-        self.label_att = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Please Choose the Attack Type:', anchor='w', padx=20)
+        self.label_att = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Choose the Attack Type:', width = '25', anchor='w')
         
-        self.label_power_active = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Total Active Load(MW):', width = '22', anchor='w', padx=20)
-        self.label_power_reactive = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Total Reactive Load(MVAr):',width = '22',anchor='w', padx=20)
-        self.label_power_loss = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Power Loss(MW):',width = '22', anchor='w', padx=20)
-        self.label_residual = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'BDD Residual:', width = '22', anchor = 'w', padx=20)
+        self.label_power_active = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Total Active Load(MW):', width = '25', anchor='w')
+        self.label_power_reactive = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Total Reactive Load(MVAr):',width = '25',anchor='w')
+        self.label_power_loss = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'Power Loss(MW):',width = '25', anchor='w')
+        self.label_residual = tk.Label(self.frame_mea, font = self.font_disp_legend, text = 'BDD Residual:', width = '25', anchor = 'w')
         
         # Measure
         self.label_power_loss_ = tk.Label(self.frame_mea, font = self.font_disp_value, width = 7,anchor='w')
@@ -172,12 +183,20 @@ class case_display:
         """
         Pause Button
         """
-        self.button_pause = tk.Button(self.frame_mea, text = 'Pause', font = self.font_disp_legend, command=self.pause, relief=tk.RAISED)
+        self.button_pause = tk.Button(self.frame_mea, text = 'Pause', font = self.font_disp_legend, command=self.pause, relief=tk.RAISED, width=10)
 
         """
         Attack Combo Button
         """
-        self.combo_att = ttk.Combobox(self.frame_mea, values = self.att_choice, textvariable=self.att_select, state = 'readonly', font=self.font_disp_value)
+        self.combo_att = ttk.Combobox(self.frame_mea, values = self.att_choice, textvariable=self.att_select, \
+            state = 'readonly', font=self.font_disp_value, width ='15', justify=tk.LEFT)
+
+        """
+        MTD Check Button
+        """
+        self.mtd_on = tk.IntVar()
+        self.check_mtd = tk.Checkbutton(self.frame_mea, text = 'MTD Trigger', variable = self.mtd_on, \
+            onvalue=1, offvalue=0, state = DISABLED,font = self.font_disp_legend, width='25', anchor='w')
 
         """
         Authorship
@@ -192,47 +211,51 @@ class case_display:
         Layout
         """
         # Main
-        self.sys_canvas.grid(row=0,column=0)
-        self.frame_mea.grid(row = 0,column=1)
+        self.sys_canvas.grid(row=0,column=0)   # The canvas to show the grid
+        self.frame_mea.grid(row = 0,column=1)  # The frame for user choice and diaplay measurement
 
         # Frame
         #label_cap_logo.place(anchor='nw')
-        label_cap_logo.grid(row = 0, column = 1, padx=(0,0), pady = (0,40))
-        self.label_att.grid(row = 1, column = 0, columnspan=1)
-        self.combo_att.grid(row=2,column=0, columnspan=2, pady = (0,70))
+        label_cap_logo.grid(row = 0, column = 1, padx=(0,0), pady = (0,30))
+        self.label_att.grid(row = 1, column = 0, padx = 20)
+        self.combo_att.grid(row = 2, column = 0, padx = 20, sticky='w')
+        self.check_mtd.grid(row = 3, column = 0, pady = (0,70), padx = 20)
 
-        self.label_power_active.grid(row = 3, column = 0)
-        self.label_power_reactive.grid(row = 4, column = 0)
-        self.label_power_loss.grid(row = 5, column = 0)
-        self.label_residual.grid(row = 6, column = 0)
+        self.label_power_active.grid(row = 4, column = 0, padx = 20)
+        self.label_power_reactive.grid(row = 5, column = 0, padx = 20)
+        self.label_power_loss.grid(row = 6, column = 0, padx = 20)
+        self.label_residual.grid(row = 7, column = 0, padx = 20)
 
         # self.button_residual.grid(row=6, column=0, pady = (70,0))
-        self.button_pause.grid(row=7,column=0,columnspan=1, padx = (200,0), pady = (60,0))
+        self.button_pause.grid(row = 8, column = 0, columnspan=2, pady = (50,0))
 
-        self.label_power_active_.grid(row = 3, column = 1)
-        self.label_power_reactive_.grid(row = 4, column = 1)
-        self.label_power_loss_.grid(row = 5, column = 1)
-        self.label_residual_.grid(row = 6, column = 1)
+        self.label_power_active_.grid(row = 4, column = 1)
+        self.label_power_reactive_.grid(row = 5, column = 1)
+        self.label_power_loss_.grid(row = 6, column = 1)
+        self.label_residual_.grid(row = 7, column = 1)
         
         """
         TopLevel: Plot Residual
         """
         self.resid_window = Toplevel(master=self.display_window)
-        self.resid_window.geometry("1200x800")
+        #self.resid_window.geometry("600x500")
         self.resid_window.title('Residual Plot')
-        figure = Figure()                            # Construct a figure
+        figure = Figure(figsize = (9,6), dpi = 100)                            # Construct a figure
         self.sub = figure.add_subplot(111)
         self.sub.plot(self.residual_summary)
-        self.figure_canvas = FigureCanvasTkAgg(figure, self.resid_window)    # Connect this figure to the Tkinter canvas
+        
+        self.figure_canvas = FigureCanvasTkAgg(figure, master = self.resid_window)    # Connect this figure to the Tkinter canvas
         self.figure_canvas.draw()
         self.figure_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)    # Place the figure
-
+        # side=tk.TOP, fill=tk.BOTH, expand=1
         # Call color map: Display different color based on the power flow
         self.color_map()
         # Call opf: Initial run the OPF 
         self.opf_loop()
         # Call display measurement
-        self.show_mea()    
+        self.show_mea()
+        # Call MTD trigger
+        self.trigger_mtd()    
 
     def opf_loop(self):
         """
@@ -281,20 +304,29 @@ class case_display:
             """
             NO ATTACK
             """
-            pass
+            # Deselect the MTD check button and disabled the selection
+            self.check_mtd.deselect()
+            self.check_mtd.config(state = tk.DISABLED)
 
-        if self.att_select.get() == self.att_choice[1]:
+        elif self.att_select.get() == self.att_choice[1]:
             """
             RANDOM ATTACK
             """
             z_att_noise = self.case_env.gen_ran_att(z_noise, self.att_ratio_max)
             
             z_noise = z_att_noise     # pass as z_noise for consistency
+
+            # Deselect the MTD check button and disabled the selection
+            self.check_mtd.deselect()
+            self.check_mtd.config(state = tk.DISABLED)
         
         elif self.att_select.get() == self.att_choice[2]:
             """
             FDI ATTACK
             """
+            # Set the MTD trigger check box to NORMAL
+            self.check_mtd.config(state = tk.NORMAL)
+
             # FDI ATT
             att_spec = {}
             # Voltage angle
@@ -308,14 +340,17 @@ class case_display:
             # self.att_spec = att_spec
 
             # Do state estimation
-            v_est = self.case_env.ac_se_pypower(z_noise, vang_ref, vmag_ref)
-            z_est = self.case_env.h_x_pypower(v_est)
+            # NOTE: case_env_ori is used
+            v_est, _ = self.case_env_ori.ac_se_pypower(z_noise, vang_ref, vmag_ref)
+            residual = self.case_env_ori.bdd_residual(z_noise, v_est)
+            print(f'Attacker residual: {residual}')
+            z_est = self.case_env_ori.h_x_pypower(v_est)
             
             # Generate FDI attack
-            v_att, self.att_posi = self.case_env.gen_fdi_att(v_est, att_spec)
+            v_att, self.att_posi = self.case_env_ori.gen_fdi_att(v_est, att_spec)
             
             # Calculate the attacked measurement
-            z_att_est = self.case_env.h_x_pypower(v_att)
+            z_att_est = self.case_env_ori.h_x_pypower(v_att)
             z_att_noise = z_noise + z_att_est - z_est
             
             z_noise = z_att_noise    # pass as z_noise for consistency
@@ -324,7 +359,9 @@ class case_display:
             print(f'The FDI attack position is: {self.att_posi}')
 
         # Calculate the residual
-        residual = self.case_env.bdd_residual(z_noise, vang_ref, vmag_ref)
+        # NOTE: based on the changed reatance
+        v_est, _ = self.case_env.ac_se_pypower(z_noise, vang_ref, vmag_ref)
+        residual = self.case_env.bdd_residual(z_noise, v_est)
 
         z_noise = z_noise.squeeze(1)       
         pf = z_noise[:self.pf_no] 
@@ -338,7 +375,26 @@ class case_display:
         load_reactive = self.case_env.Cg@qg - qi*self.case_env.case['baseMVA']
         pl = np.sum(np.abs(pf+pt))
         
+        # print(self.mtd_on.get())
+
         return load_active, load_reactive, pf_actual, pf*self.case_env.case['baseMVA'], pl*self.case_env.case['baseMVA'], residual
+
+    def trigger_mtd(self):
+        """
+        Update/Set to original reactance in the case file
+        """
+
+        if self.mtd_on.get() == 1:
+            # MTD is triggered, update the reactance
+            increase_decrease = np.random.randint(0,2,size = self.case_env.no_brh)*2-1   # -1 or 1
+            ratio = self.min_reac_ratio + (self.max_reac_ratio - self.min_reac_ratio)*np.random.rand(self.case_env.no_brh,)
+            reac_new = self.case_env.reactance_ori * (1+ratio*increase_decrease)
+            self.case_env.update_reactance(reac_new)
+        
+        else:
+            # print('here!')
+            # MTD is turned off, back to the default situation
+            self.case_env.update_reactance(self.case_env.reactance_ori)
 
     def plot_residual(self):
         """
@@ -362,15 +418,19 @@ class case_display:
         #plt.text(1, 50, 'Some Text', ha='center', va='center',rotation='vertical')
         plt.setp(self.sub, xticks = np.arange(len(residual_summary)), xticklabels = np.arange(ticks_start, ticks_end))
         self.sub.legend(prop = {'size': 15}, loc = 'center left')
-        self.sub.set_xlabel('OPF Instance', fontsize=20)
-        self.sub.set_ylabel('Residual', fontsize = 20)
         self.sub.set_ylim(0,np.max([np.max(residual_summary), self.case_env.bdd_threshold+10]))
+        self.sub.set_xlabel('OPF Instance', fontsize=15)
+        self.sub.set_ylabel('Residual', fontsize = 15)
         self.figure_canvas.draw()
 
     def show_mea(self):
         if self.is_pause == False:
             # Continue
             self.opf_loop()       # Run OPF
+            self.trigger_mtd()    # Determine whether the MTD should be triggered or not
+            print(f'MTD statue: {self.mtd_on.get()}')
+            # print(self.case_env.case['branch'][:,BR_X])
+
             self.display_update() # Update the display
             self.display_window.after(self.delay_time, self.show_mea)  # Refresh the whole window
         else:
@@ -423,6 +483,10 @@ class case_display:
                 # No att
                 # Normal operation
                 self.sys_canvas.itemconfig(tagOrId = f'line_text_below_{i}', fill = self.color_map_list[color_idx_actual], text = f'{int(brh_ratio_actual*100)}' + '%', font = self.font_grid)
+
+                # Clear the Attack text: above
+                self.sys_canvas.itemconfig(tagOrId = f'line_text_above_{i}', fill = self.color_map_list[color_idx_actual], text = f'', font = self.font_grid)
+
             else:
                 # With attacks
                 # Also display the actual measurement
@@ -516,13 +580,17 @@ if __name__ == "__main__":
     # Instance power env
     case_name = 'case14'
     case = case14()
+    case = gen_case(case, 'case14')  # Modify the case
     
     # Define measurement index
-    mea_idx, no_mea, noise_sigma = define_mea_idx_noise(case, 'RTU_POWER')
+    mea_idx, no_mea, noise_sigma = define_mea_idx_noise(case, 'RTU')
     
     # Instance the class
     case_env = power_env(case = case, case_name = case_name, noise_sigma = noise_sigma, idx = mea_idx, fpr = 0.05)
     
+    # Generate load if it does not exist
+    _, _ = gen_load(case, 'case14')
+
     # Define the Tkinter mainloop
     root = tk.Tk()
     root.title('IEEE ' + case_name + ' system')

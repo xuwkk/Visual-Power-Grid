@@ -7,7 +7,7 @@ Inherited from the state estimation tool run_AC_SE
 Author: W XU 
 """
 
-from run_AC_SE import SE
+from class_se import SE
 from pypower.api import *
 import numpy as np
 import warnings
