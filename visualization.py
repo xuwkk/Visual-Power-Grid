@@ -585,12 +585,12 @@ if __name__ == "__main__":
     # Define measurement index
     mea_idx, no_mea, noise_sigma = define_mea_idx_noise(case, 'RTU')
     
+    # Generate load if it does not exist
+    _, _ = gen_load(case, 'case14')
+    
     # Instance the class
     case_env = power_env(case = case, case_name = case_name, noise_sigma = noise_sigma, idx = mea_idx, fpr = 0.05)
     
-    # Generate load if it does not exist
-    _, _ = gen_load(case, 'case14')
-
     # Define the Tkinter mainloop
     root = tk.Tk()
     root.title('IEEE ' + case_name + ' system')
