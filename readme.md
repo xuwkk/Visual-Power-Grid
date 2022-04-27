@@ -36,3 +36,13 @@ The **Tkinter** package (“Tk interface”) is the standard Python interface to
 1. [Tkinter Course - Create Graphic User Interfaces in Python Tutorial](https://www.youtube.com/watch?v=YXPyB4XeYLA&t=29s) from [freeCodeCamp.org](https://www.youtube.com/channel/UC8butISFwT-Wl7EV0hUK0BQ) (beginner level).
 2. [Python Tkinter](https://www.youtube.com/playlist?list=PL6lxxT7IdTxGoHfouzEK-dFcwr_QClME_) from [John Philip Jones](https://www.youtube.com/c/johnphilipjones) (beginner level).
 3. [GUIs with Tkinter](https://www.youtube.com/playlist?list=PLQVvvaa0QuDclKx-QpC9wntnURXVJqLyk) from [sentdex](https://www.youtube.com/c/sentdex) (intermidiante lavel).
+
+## Citation
+
+For any acedemic uses please cite our paper which also uses this repo as visualization:
+@article{xu2021robust,
+  title={Robust Moving Target Defence Against False Data Injection Attacks in Power Grids},
+  author={Xu, Wangkun and Jaimoukha, Imad M and Teng, Fei},
+  journal={arXiv preprint arXiv:2111.06346},
+  year={2021}
+}
