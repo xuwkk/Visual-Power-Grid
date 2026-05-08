@@ -1,6 +1,8 @@
 """
 The main file to run the power system steady state simulation
 Inherit from the FDI class
+
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 
 import numpy as np
@@ -39,14 +41,13 @@ class power_env(FDI):
         else:
             print('The OPF under this load condition is not converged! Decrease the load.')
 
-        print('*'*60)
-        
         # Load
         load_active_dir = f"src/{case_name}/load/load_active.npy"
         load_reactive_dir = f"src/{case_name}/load/load_reactive.npy"
 
         self.load_active = np.load(load_active_dir)
         self.load_reactive = np.load(load_reactive_dir)        
+        self.current_load_index = None
 
         # The default reactance in case file
         self.reactance_ori = copy.deepcopy(self.case['branch'][:,BR_X])   
@@ -58,16 +59,17 @@ class power_env(FDI):
         
         case_opf = copy.deepcopy(self.case)
         if 'opf_idx' in kwargs.keys():
-            print(f'Load index: {10*kwargs["opf_idx"]}.')
             # Specify the index
-            load_active_ = self.load_active[int(10*kwargs['opf_idx'])]
-            load_reactive_ = self.load_reactive[int(10*kwargs['opf_idx'])]
+            load_idx = int(10*kwargs['opf_idx']) % len(self.load_active)
+            self.current_load_index = load_idx
+            load_active_ = self.load_active[load_idx]
+            load_reactive_ = self.load_reactive[load_idx]
         
             case_opf['bus'][:,PD] = load_active_
             case_opf['bus'][:,QD] = load_reactive_
         else:
             # run the default
-            print('Run on the default load condition.')
+            self.current_load_index = None
             pass
         
         result = runopf(case_opf, opt)
@@ -86,11 +88,11 @@ if __name__ == "__main__":
     # Define measurement index
     mea_idx, no_mea, noise_sigma = define_mea_idx_noise(case, 'RTU')
     
-    # Instance the class
-    case_env = power_env(case = case, case_name = case_name, noise_sigma = noise_sigma, idx = mea_idx, fpr = 0.05)
-    
     # Generate load if it does not exist
     _, _ = gen_load(case, 'case14')
+
+    # Instance the class
+    case_env = power_env(case = case, case_name = case_name, noise_sigma = noise_sigma, idx = mea_idx, fpr = 0.05)
     
     # Run opf 
     result = case_env.run_opf()

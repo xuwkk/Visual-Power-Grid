@@ -1,6 +1,8 @@
 """
 Examples of measurement index and measurement noise
 The measurement should always be arranged as z = [pf, pt, pi, vang, qf, qt, qi, vmag]
+
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 
 import numpy as np

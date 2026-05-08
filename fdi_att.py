@@ -5,6 +5,7 @@ The code here may not be the same as the original repo.
 A python library to generate FDI attack
 Inherited from the state estimation tool run_AC_SE
 Author: W XU 
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 
 from class_se import SE
@@ -61,4 +62,3 @@ class FDI(SE):
         v_att = vmag_att * np.exp(1j*vang_att)
         
         return v_att, ang_posi
-    

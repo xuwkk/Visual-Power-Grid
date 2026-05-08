@@ -2,6 +2,8 @@
 This module is used to 
 1. Modify the case
 2. generate the load conditions for a given system configuration
+
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 import pandas as pd
 import numpy as np
@@ -9,7 +11,8 @@ import copy
 from pypower.idx_bus import PD, QD
 from pypower.idx_brch import RATE_A
 from pypower.api import ext2int, bustypes
-from os.path import exists
+from os import makedirs
+from os.path import dirname, exists
 
 np.random.seed(10)
 
@@ -72,6 +75,7 @@ def gen_load(case, case_name):
     # Load address
     load_active_dir = f"src/{case_name}/load/load_active.npy"
     load_reactive_dir = f"src/{case_name}/load/load_reactive.npy"
+    makedirs(dirname(load_active_dir), exist_ok=True)
 
     # Test if the data already exists.
     if exists(load_active_dir):
@@ -84,6 +88,13 @@ def gen_load(case, case_name):
         # Generate load
         print(f'No load data found, generating load...')
         load_raw_dir = "src/load_normalize_clean.csv"
+        if not exists(load_raw_dir):
+            raise FileNotFoundError(
+                f"Missing raw load data: {load_raw_dir}. "
+                "Download the data from the README and copy it into src, "
+                "or provide pre-generated load_active.npy and load_reactive.npy "
+                f"under src/{case_name}/load/."
+            )
         load_raw = pd.read_csv(load_raw_dir)
         load_active = []
         load_reactive = []

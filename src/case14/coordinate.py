@@ -1,3 +1,9 @@
+"""
+IEEE 14-bus display coordinates.
+
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
+"""
+
 coordinate = {
     '1':(62.5,375),
     '2':(175,450),

@@ -11,6 +11,7 @@ The original repo for this code can be found in my GitHub: https://github.com/xu
 Some code is removed if not related to the this task
 
 Author: W XU
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 
 import numpy as np
@@ -168,8 +169,6 @@ class SE:
         z = np.concatenate([pf, pt, pi, vang, qf, qt, qi, vmag], axis = 0)
         
         z = self.IDX@z   # Select the measurement
-        print(z.shape)
-        print(self.R.shape)
         z_noise = z + np.random.multivariate_normal(mean = np.zeros((self.no_mea,)), cov = self.R)
         z = np.expand_dims(z, axis = 1)
         z_noise = np.expand_dims(z_noise, axis = 1)
@@ -412,7 +411,3 @@ if __name__ == "__main__":
     residual = se.bdd_residual(z_noise, v_est)    
     print(f'BDD threshold: {se.bdd_threshold}')
     print(f'residual: {residual}')
-    
-    
-        
-        

@@ -1,5 +1,7 @@
 """
 Contains the descriptions on the configuration of state estimation and optimal power flow
+
+Copyright (c) 2026 Wangkun Xu. All rights reserved.
 """
 
 from pypower.api import ppoption
