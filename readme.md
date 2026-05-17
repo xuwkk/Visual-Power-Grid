@@ -1,9 +1,6 @@
 # Power System Visualization Demo: On Going
 
-![visualization](visualization.png)
-
-[Download/watch the MOV demo](visualization.mov)
-
+![visualization](visualization.gif)
 
 ## Introduction
 This repository contains a visualization tool on power system steady state operation, e.g. Optimal Power Flow (OPF) and state estimation (SE). Meanwhile, cyber attacks, such as False Data Injection (FDI) and the corresponding defence strategy, e.g. Moving Target Defence (MTD) is also included. The demonstration is purely in Python. The power system operation replies on python package [PyPower](https://github.com/rwl/PYPOWER) (installization required)  and [Tkinter](https://docs.python.org/3/library/tkinter.html) (embedded in Python). 
@@ -54,6 +51,17 @@ conda create -n mtd_visual -c conda-forge python=3.10 tk numpy scipy pandas matp
 conda activate mtd_visual
 pip install pypower
 ```
+
+## How to Run
+
+From the repository root, activate the environment and start the visualization:
+
+```bash
+conda activate mtd_visual
+python visualization.py
+```
+
+On startup, `visualization.py` loads the IEEE 14-bus case, prepares the measurement indices, and creates `src/case14/load/load_active.npy` and `src/case14/load/load_reactive.npy` if they do not already exist. If load data is missing, download the data linked above and copy `load_normalize_clean.csv` into `src/`.
 
 ## PyPower
 
